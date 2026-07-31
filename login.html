@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <title>OMERO GYM — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="common.css" />
+  <link rel="stylesheet" href="login.css" />
+</head>
+<body data-page="login">
+  <div class="app">
+    <!-- NAVBAR -->
+    <header>
+      <nav class="nav">
+        <a class="logo" href="login.html">
+          <span class="logo-badge">
+            <svg width="18" height="18" viewBox="0 0 512 512" fill="#fff">
+              <rect x="176" y="236" width="160" height="40" rx="20"/>
+              <rect x="140" y="196" width="44" height="120" rx="16"/>
+              <rect x="328" y="196" width="44" height="120" rx="16"/>
+              <rect x="96" y="216" width="40" height="80" rx="14"/>
+              <rect x="376" y="216" width="40" height="80" rx="14"/>
+            </svg>
+          </span>
+          <span class="logo-text">OMERO <span class="r">GYM</span></span>
+        </a>
+        <span></span>
+        <div class="nav-right">
+          <a class="nav-link active" href="login.html">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>
+            </svg> 
+            Login
+          </a>
+          <a class="btn btn-primary btn-sm" href="register.html">Create Account</a>
+        </div>
+        <button class="nav-toggle" id="navToggle" aria-label="Menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </nav>
+      <div class="mobile-menu" id="mobileMenu">
+        <a href="login.html" class="active">Login</a>
+        <a href="register.html">Create Account</a>
+      </div>
+    </header>
+
+    <!-- LOGIN CARD -->
+    <div class="auth-main">
+      <div class="auth-card fade">
+        <div class="card auth-inner">
+          <div class="brand-badge">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 7v10M4 9v6M18 7v10M20 9v6M6 12h12"/>
+            </svg>
+          </div>
+          <h1 class="auth-title">OMERO GYM PORTAL</h1>
+          <p class="auth-sub">Log in to secure your workout schedule &amp; classes</p>
+
+          <form id="loginForm" class="stack">
+            <div>
+              <label class="field-label" for="li-email">Email Address</label>
+              <input class="field" id="li-email" type="email" required placeholder="athlete@example.com" />
+            </div>
+            <div>
+              <label class="field-label" for="li-pass">Password</label>
+              <input class="field" id="li-pass" type="password" required placeholder="••••••••" />
+            </div>
+            <button class="btn btn-primary btn-block" type="submit">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>
+              </svg>
+              Sign In
+            </button>
+          </form>
+
+          <p class="center-link">New to OMERO GYM? <a href="register.html">Create an Account Here</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
