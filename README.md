@@ -8,7 +8,7 @@ and view their bookings on a personal dashboard.
 
 ## Group Members
 
-| Name | Index Number |
+| Name | Register Number |
 |------|--------------|
 | Mohammed Ashfak | ITT/2024/011 |
 | Mohamed Ahsan | ITT/2024/009 |
