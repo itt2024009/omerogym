@@ -1,0 +1,60 @@
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+}
+
+.auth-inner {
+  padding: 32px;
+}
+
+.brand-badge {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--accent);
+  margin: 0 auto;
+  box-shadow: 0 8px 24px -8px rgba(224, 36, 52, 0.9);
+  color: #fff;
+}
+
+.auth-title {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.auth-sub {
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 6px;
+}
+
+.stack {
+  margin-top: 28px;
+}
+
+.stack > * + * {
+  margin-top: 16px;
+}
+
+.center-link {
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 20px;
+}
+
+.center-link a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.center-link a:hover {
+  color: var(--accent-soft);
+}
