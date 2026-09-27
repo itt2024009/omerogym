@@ -103,7 +103,7 @@ Tables created by `database.sql`:
 ## How to Run (Phase 3 — with backend)
 
 1. Install **XAMPP** (or WAMP) and start **Apache** and **MySQL**.
-2. Copy the whole `OMERO-GYM` folder into `htdocs` (XAMPP) or `www` (WAMP).
+2. Copy the whole `omerogym` folder into `htdocs` (XAMPP) or `www` (WAMP).
 3. Open **phpMyAdmin** → **Import** → select `database.sql` → Go.
    This creates the `omero_gym` database with all tables above, and seeds a starter
    set of workout plans and trainers.
@@ -112,10 +112,10 @@ Tables created by `database.sql`:
 5. The fixed admin account is already seeded by `database.sql`
    (`admin@omerogym.com` / `Omero@Gym2026` — change the password once you've
    logged in). If you'd rather create your own from scratch, visit
-   `http://localhost/OMERO-GYM/admin/seed_admin.php` **once** instead; it refuses
+   `http://localhost/omerogym/admin/seed_admin.php` **once** instead; it refuses
    to run again after an admin exists — delete it afterwards if you want to be
    extra safe.
-6. Visit `http://localhost/OMERO-GYM/login.html` in your browser (or `index.php`).
+6. Visit `http://localhost/omerogym/login.html` in your browser (or `index.php`).
    This ONE form is used by everyone: register a new member account and log in
    for the member side, or log in with the admin email/password from step 5 and
    you're taken straight to `admin/dashboard.php` instead — no separate admin URL
