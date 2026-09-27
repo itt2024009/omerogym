@@ -7,8 +7,15 @@
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/functions.php';
 
-$errors  = [];
-$success = false;
+// contact.php doubles as two things:
+//  - the "Messages" tab for a logged-in member (same nav/session as classes.html,
+//    book.html, workouts.html — it must NOT look like the member got logged out)
+//  - a public "Contact Us" form for a signed-out visitor
+// Which header/copy is shown below depends on is_logged_in(), not on which link
+// was clicked, so a logged-in member always keeps their Hello/Logout member nav.
+$loggedIn  = is_logged_in();
+$errors    = [];
+$success   = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name    = clean($_POST['name'] ?? '');
@@ -25,6 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $success = true;
         $name = $email = $message = '';
     }
+} elseif ($loggedIn) {
+    // Pre-fill name/email for a logged-in member so they don't have to retype them.
+    $name  = $_SESSION['user_name'];
+    $email = $_SESSION['user_email'];
+    $message = '';
 }
 ?>
 <!doctype html>
@@ -40,6 +52,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body data-page="contact">
   <div class="app">
+    <?php if ($loggedIn): ?>
+    <!-- Logged-in member: same navbar as classes.html / book.html / workouts.html,
+         so switching to Messages behaves exactly like switching any other tab
+         (Hello/Logout stay put, nobody gets bounced to a signed-out header). -->
+    <header>
+      <nav class="nav">
+        <a class="logo" href="classes.html">
+          <span class="logo-badge">
+            <svg width="18" height="18" viewBox="0 0 512 512" fill="#fff">
+              <rect x="176" y="236" width="160" height="40" rx="20"/>
+              <rect x="140" y="196" width="44" height="120" rx="16"/>
+              <rect x="328" y="196" width="44" height="120" rx="16"/>
+              <rect x="96" y="216" width="40" height="80" rx="14"/>
+              <rect x="376" y="216" width="40" height="80" rx="14"/>
+            </svg>
+          </span>
+          <span class="logo-text">OMERO <span class="r">GYM</span></span>
+        </a>
+        <ul class="nav-links">
+          <li><a class="nav-link active" href="contact.php">Messages</a></li>
+          <li><a class="nav-link" href="classes.html">Classes &amp; Sessions</a></li>
+          <li><a class="nav-link" href="book.html">Book a Slot</a></li>
+          <li><a class="nav-link" href="workouts.html">My Workouts</a></li>
+        </ul>
+        <div class="nav-right">
+          <span class="hello">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
+            </svg>
+            Hello, <span class="js-hello"><?= htmlspecialchars($_SESSION['user_name'], ENT_QUOTES, 'UTF-8') ?></span>
+          </span>
+          <button class="btn btn-ghost btn-sm" data-action="logout">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>
+            </svg>
+            Logout
+          </button>
+        </div>
+        <button class="nav-toggle" id="navToggle" aria-label="Menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </nav>
+      <div class="mobile-menu" id="mobileMenu">
+        <span class="hello" style="padding:8px 12px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
+          </svg>
+          Hello, <span class="js-hello"><?= htmlspecialchars($_SESSION['user_name'], ENT_QUOTES, 'UTF-8') ?></span>
+        </span>
+        <a class="active" href="contact.php">Messages</a>
+        <a href="classes.html">Classes &amp; Sessions</a>
+        <a href="book.html">Book a Slot</a>
+        <a href="workouts.html">My Workouts</a>
+        <button class="btn btn-ghost" data-action="logout">Logout</button>
+      </div>
+    </header>
+    <?php else: ?>
     <header>
       <nav class="nav">
         <a class="logo" href="login.html">
@@ -61,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
       </nav>
     </header>
+    <?php endif; ?>
 
     <div class="auth-main">
       <div class="auth-card fade">
@@ -70,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
-          <h1 class="auth-title">CONTACT US</h1>
-          <p class="auth-sub">Questions about membership or classes? Send us a message.</p>
+          <h1 class="auth-title"><?= $loggedIn ? 'MESSAGES' : 'CONTACT US' ?></h1>
+          <p class="auth-sub"><?= $loggedIn ? 'Send feedback or a question to the OMERO GYM team — we read every message.' : 'Questions about membership or classes? Send us a message.' ?></p>
 
           <?php if ($success): ?>
             <p class="help" style="color:#3ddc84;margin-bottom:16px;">Thank you — your message has been sent. We'll get back to you soon.</p>
@@ -97,7 +169,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button class="btn btn-primary btn-block" type="submit">Send Message</button>
           </form>
 
-          <p class="center-link">Back to <a href="login.html">Login</a></p>
+          <?php if ($loggedIn): ?>
+            <p class="center-link">Back to <a href="classes.html">Classes &amp; Sessions</a></p>
+          <?php else: ?>
+            <p class="center-link">Back to <a href="login.html">Login</a></p>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -117,5 +193,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     });
   </script>
+  <script src="app.js"></script>
 </body>
 </html>

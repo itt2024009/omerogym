@@ -28,6 +28,7 @@
           <span class="logo-text">OMERO <span class="r">GYM</span></span>
         </a>
         <ul class="nav-links">
+          <li><a class="nav-link" href="contact.php">Messages</a></li>
           <li><a class="nav-link" href="classes.html">Classes &amp; Sessions</a></li>
           <li><a class="nav-link active" href="book.html">Book a Slot</a></li>
           <li><a class="nav-link" href="workouts.html">My Workouts</a></li>
@@ -59,6 +60,7 @@
           </svg> 
           Hello, <span class="js-hello">Dedicated Athlete</span>
         </span>
+        <a href="contact.php">Messages</a>
         <a href="classes.html">Classes &amp; Sessions</a>
         <a class="active" href="book.html">Book a Slot</a>
         <a href="workouts.html">My Workouts</a>
@@ -81,6 +83,12 @@
             <div style="margin-top:24px">
               <label class="field-label" for="bk-session">Session / Class</label>
               <select class="field" id="bk-session"></select>
+            </div>
+
+            <div style="margin-top:20px">
+              <label class="field-label" for="bk-trainer">Pick a Trainer (optional)</label>
+              <select class="field" id="bk-trainer"><option value="">Loading trainers…</option></select>
+              <p class="help">Trainer name on the left, availability on the right — unavailable trainers can't be selected.</p>
             </div>
 
             <div style="margin-top:20px">

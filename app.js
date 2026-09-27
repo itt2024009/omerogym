@@ -6,6 +6,9 @@
     { id: "classes", label: "Group Fitness Classes", filter: "Group Fitness Classes" },
     { id: "personal", label: "Personal Training (1-on-1)", filter: "Personal Training" }
   ];
+  // Fallback catalog only used if sessions.php can't be reached (e.g. MySQL not
+  // running yet). Once the database answers, SESSIONS is replaced with whatever
+  // the admin has configured in the sessions_catalog table via the admin site.
   var SESSIONS = [
     { id: "peak-floor", category: "floor", title: "Peak Hours Floor Pass",
       description: "Reservation for dynamic weight training and cardio equipment during premium high-energy intervals.",
@@ -20,7 +23,26 @@
       description: "Custom programming focusing heavily on biomechanics, heavy lifting form, and progressive overloading vectors.",
       price: 5000, duration: 60 }
   ];
+  var TRAINERS = []; // filled from trainers.php
   var TIME_BLOCKS = ["06:00 AM", "08:00 AM", "10:00 AM", "04:00 PM", "05:00 PM", "07:00 PM"];
+
+  // Loads the live workout-plan catalog from the database (admin-managed). Resolves
+  // either way so pages can keep working off the fallback SESSIONS array if the
+  // request fails.
+  function loadCatalog() {
+    return api("sessions.php", "GET").then(function (r) {
+      if (r.ok && r.data && r.data.success && r.data.sessions && r.data.sessions.length) {
+        SESSIONS = r.data.sessions;
+      }
+    }).catch(function () {});
+  }
+
+  // Loads the trainer list (with availability) from the database.
+  function loadTrainers() {
+    return api("trainers.php", "GET").then(function (r) {
+      if (r.ok && r.data && r.data.success) { TRAINERS = r.data.trainers || []; }
+    }).catch(function () {});
+  }
 
   // ---------------------------------------------------------------------
   // Phase 3: real backend. Auth + bookings now live in MySQL via PHP
@@ -141,6 +163,12 @@
       var password = el("li-pass").value;
       api("auth/login.php", "POST", { email: email, password: password }).then(function (r) {
         if (r.ok && r.data.success) {
+          if (r.data.admin) {
+            // Same login form, but this email belongs to the admin account —
+            // send to the admin dashboard instead of the member area.
+            location.href = "admin/dashboard.php";
+            return;
+          }
           setUser({ name: r.data.name, email: r.data.email });
           location.href = "classes.html";
         } else {
@@ -222,21 +250,45 @@
       location.href = "book.html?session=" + encodeURIComponent(b.getAttribute("data-book"));
     });
 
-    renderFilters();
-    renderSections();
+    sectionsEl.innerHTML = '<p class="page-sub">Loading session catalog…</p>';
+    loadCatalog().then(function () {
+      renderFilters();
+      renderSections();
+    });
   }
 
   function initBook() {
     var sel = el("bk-session"), dateEl = el("bk-date"), blocksEl = el("blocks");
+    var trainerEl = el("bk-trainer");
     var stepperEl = el("stepper"), summaryEl = el("summary"), confirmBtn = el("confirmBtn");
     if (!sel) return;
 
-    var state = { sessionId: param("session") || "", date: "", time: "" };
+    var state = { sessionId: param("session") || "", date: "", time: "", trainerId: "" };
     dateEl.min = today();
 
-    sel.innerHTML = '<option value="">Select a session…</option>' + SESSIONS.map(function (x) {
-      return '<option value="' + x.id + '"' + (x.id === state.sessionId ? " selected" : "") + ">" + esc(x.title) + " — " + LKR(x.price) + "</option>";
-    }).join("");
+    function renderSessionOptions() {
+      sel.innerHTML = '<option value="">Select a session…</option>' + SESSIONS.map(function (x) {
+        return '<option value="' + x.id + '"' + (x.id === state.sessionId ? " selected" : "") + ">" + esc(x.title) + " — " + LKR(x.price) + "</option>";
+      }).join("");
+    }
+    renderSessionOptions();
+
+    // Trainer dropdown: name on the left, availability on the right. Trainers marked
+    // unavailable by the admin are rendered disabled so they simply can't be picked.
+    function renderTrainerOptions() {
+      if (!trainerEl) return;
+      if (!TRAINERS.length) {
+        trainerEl.innerHTML = '<option value="">No trainers set up yet</option>';
+        trainerEl.disabled = true;
+        return;
+      }
+      trainerEl.disabled = false;
+      trainerEl.innerHTML = '<option value="">No trainer needed</option>' + TRAINERS.map(function (t) {
+        var label = t.name + (t.specialty ? " — " + t.specialty : "") + (t.available ? " (Available)" : " (Unavailable)");
+        return '<option value="' + t.id + '"' + (String(t.id) === String(state.trainerId) ? " selected" : "") + (t.available ? "" : " disabled") + ">" + esc(label) + "</option>";
+      }).join("");
+    }
+    renderTrainerOptions();
 
     var STEPS = ["Pick a date", "Choose a time block", "Confirm"];
     function stepIndex() { return !state.date ? 0 : !state.time ? 1 : 2; }
@@ -260,17 +312,24 @@
       }).join("") + "</div>";
     }
 
+    function trainerById(id) {
+      for (var i = 0; i < TRAINERS.length; i++) { if (String(TRAINERS[i].id) === String(id)) return TRAINERS[i]; }
+      return null;
+    }
+
     function renderSummary() {
       var s = getSession(state.sessionId);
+      var t = trainerById(state.trainerId);
       var sched = (state.date && state.time)
         ? '<div class="sched"><span>Scheduled:</span> ' + state.date + " · " + state.time + "</div>" : "";
+      var trainerRow = t ? '<div class="sched"><span>Trainer:</span> ' + esc(t.name) + "</div>" : "";
       summaryEl.innerHTML =
         '<p class="sum-label">Selected Workout / Class</p>' +
         '<p class="sum-title">' + (s ? esc(s.title) : "Please pick a session card") + "</p>" +
         '<div class="sum-grid">' +
         '<div><p class="sum-label">' + icon("timer", 14) + " Duration</p><p class=\"sum-val\">" + (s ? s.duration + " mins" : "—") + "</p></div>" +
         '<div><p class="sum-label">' + icon("clock", 14) + ' Session Cost</p><p class="sum-val red">' + (s ? LKR(s.price) : "—") + "</p></div>" +
-        "</div>" + sched;
+        "</div>" + sched + trainerRow;
     }
 
     function refreshConfirm() {
@@ -287,12 +346,21 @@
       state.time = b.getAttribute("data-time");
       renderAll();
     });
+    if (trainerEl) {
+      trainerEl.addEventListener("change", function (e) { state.trainerId = e.target.value; renderSummary(); });
+    }
     confirmBtn.addEventListener("click", function () {
       var s = getSession(state.sessionId);
       if (!s || !state.date || !state.time) return;
+      var t = trainerById(state.trainerId);
+      if (state.trainerId && (!t || !t.available)) {
+        alert("That trainer is not available. Please pick another trainer.");
+        return;
+      }
       confirmBtn.disabled = true;
       api("bookings/create.php", "POST", {
         sessionId: s.id, title: s.title, price: s.price, duration: s.duration,
+        trainerId: state.trainerId || null,
         date: state.date, time: state.time
       }).then(function (r) {
         if (r.ok && r.data.success) {
@@ -308,6 +376,11 @@
     });
 
     renderAll();
+    Promise.all([loadCatalog(), loadTrainers()]).then(function () {
+      renderSessionOptions();
+      renderTrainerOptions();
+      renderAll();
+    });
   }
 
   function initWorkouts() {
@@ -325,11 +398,12 @@
       } else {
         upEl.innerHTML =
           '<div class="table-wrap"><table><thead><tr>' +
-          "<th>Reservation ID</th><th>Class / Session</th><th>Scheduled Date &amp; Time</th><th>Cost</th><th>Status</th><th class=\"right\">Actions</th>" +
+          "<th>Reservation ID</th><th>Class / Session</th><th>Trainer</th><th>Scheduled Date &amp; Time</th><th>Cost</th><th>Status</th><th class=\"right\">Actions</th>" +
           "</tr></thead><tbody>" + upcoming.map(function (b) {
             return "<tr>" +
               '<td class="id">' + b.id + "</td>" +
               '<td class="cell-title">' + esc(b.title) + "</td>" +
+              '<td class="cell-muted">' + (b.trainer ? esc(b.trainer) : "—") + "</td>" +
               '<td class="cell-muted">' + b.date + " · " + b.time + "</td>" +
               '<td class="cell-muted">' + LKR(b.price) + "</td>" +
               '<td><span class="badge confirmed">Confirmed</span></td>' +
@@ -341,11 +415,12 @@
       pastEl.innerHTML = !past.length
         ? '<div class="empty"><p>No past sessions yet.</p></div>'
         : '<div class="table-wrap"><table><thead><tr>' +
-          "<th>Reservation ID</th><th>Session</th><th>Date &amp; Time</th><th>Cost</th><th>Status</th><th class=\"right\">Shortcut</th>" +
+          "<th>Reservation ID</th><th>Session</th><th>Trainer</th><th>Date &amp; Time</th><th>Cost</th><th>Status</th><th class=\"right\">Shortcut</th>" +
           "</tr></thead><tbody>" + past.map(function (b) {
             return "<tr>" +
               '<td class="id">' + b.id + "</td>" +
               '<td class="cell-title">' + esc(b.title) + "</td>" +
+              '<td class="cell-muted">' + (b.trainer ? esc(b.trainer) : "—") + "</td>" +
               '<td class="cell-muted">' + b.date + " · " + b.time + "</td>" +
               '<td class="cell-muted">' + LKR(b.price) + "</td>" +
               '<td><span class="badge attended">Attended</span></td>' +

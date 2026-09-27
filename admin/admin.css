@@ -1,0 +1,59 @@
+/* admin/admin.css — small additions on top of ../common.css and ../workouts.css,
+   which already provide .btn, .card, .field, .pad, table/th/td, .badge, .panel-head */
+
+.admin-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.admin-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .admin-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .admin-form-grid .span-2 {
+    grid-column: 1 / -1;
+  }
+}
+
+.badge.available {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.badge.unavailable {
+  background: rgba(224, 36, 52, 0.15);
+  color: #ff6b76;
+  border-color: rgba(224, 36, 52, 0.3);
+}
+
+.badge.unread {
+  background: rgba(224, 36, 52, 0.15);
+  color: #ff6b76;
+  border-color: rgba(224, 36, 52, 0.3);
+}
+
+.stack-tight > * + * {
+  margin-top: 8px;
+}
+
+.msg-body {
+  white-space: pre-wrap;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.card.pad + .card.pad {
+  margin-top: 20px;
+}
