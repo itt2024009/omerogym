@@ -1,158 +1,41 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1
--- Generation Time: Sep 04, 2026 at 02:32 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- OMERO GYM — database.sql
+-- Import this file in phpMyAdmin (creates the database and all tables).
+-- Run in phpMyAdmin's SQL tab, or: mysql -u root -p < database.sql
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
+CREATE DATABASE IF NOT EXISTS omero_gym CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE omero_gym;
 
+-- 1. Users table (required by Phase 3 guideline)
+CREATE TABLE IF NOT EXISTS users (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(100)  NOT NULL,
+    email      VARCHAR(150)  NOT NULL UNIQUE,
+    phone      VARCHAR(30)   DEFAULT NULL,
+    password   VARCHAR(255)  NOT NULL,
+    created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
+-- 2. Contact / Messages table (required by Phase 3 guideline)
+CREATE TABLE IF NOT EXISTS messages (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(100)  NOT NULL,
+    email      VARCHAR(150)  NOT NULL,
+    message    TEXT          NOT NULL,
+    created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
---
--- Database: `omerogym`
---
-
--- --------------------------------------------------------
-
---
--- Table structure for table `class_services`
---
-
-CREATE TABLE `class_services` (
-  `id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `price` decimal(10,2) NOT NULL,
-  `duration_minutes` int(11) NOT NULL,
-  `category` enum('Floor Access','Group Fitness','Personal Training') NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `messages`
---
-
-CREATE TABLE `messages` (
-  `id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `message` text NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `reservations`
---
-
-CREATE TABLE `reservations` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `class_service_id` int(11) NOT NULL,
-  `appointment_date` date NOT NULL,
-  `appointment_time` time NOT NULL,
-  `status` enum('Confirmed','Cancelled','Attended') DEFAULT 'Confirmed',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `username` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `role` enum('member','admin') DEFAULT 'member',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Indexes for dumped tables
---
-
---
--- Indexes for table `class_services`
---
-ALTER TABLE `class_services`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `messages`
---
-ALTER TABLE `messages`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `reservations`
---
-ALTER TABLE `reservations`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`),
-  ADD KEY `class_service_id` (`class_service_id`);
-
---
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `class_services`
---
-ALTER TABLE `class_services`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `messages`
---
-ALTER TABLE `messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `reservations`
---
-ALTER TABLE `reservations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- Constraints for dumped tables
---
-
---
--- Constraints for table `reservations`
---
-ALTER TABLE `reservations`
-  ADD CONSTRAINT `reservations_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `reservations_ibfk_2` FOREIGN KEY (`class_service_id`) REFERENCES `class_services` (`id`) ON DELETE CASCADE;
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+-- 3. Theme-specific table: OMERO GYM is a booking app, so bookings is the theme table
+--    (mirrors the project's own README roadmap: "users, messages, bookings").
+CREATE TABLE IF NOT EXISTS bookings (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    user_id       INT           NOT NULL,
+    session_id    VARCHAR(50)   NOT NULL,   -- e.g. 'hiit-blast' (catalog id from app.js)
+    title         VARCHAR(150)  NOT NULL,   -- e.g. 'High Intensity HIIT Blast'
+    price         INT           NOT NULL DEFAULT 0,
+    duration      INT           NOT NULL DEFAULT 0,   -- minutes
+    booking_date  DATE          NOT NULL,
+    booking_time  VARCHAR(20)   NOT NULL,   -- e.g. '06:00 AM'
+    status        VARCHAR(20)   NOT NULL DEFAULT 'Confirmed',
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_bookings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

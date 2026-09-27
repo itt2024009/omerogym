@@ -21,10 +21,13 @@
       price: 5000, duration: 60 }
   ];
   var TIME_BLOCKS = ["06:00 AM", "08:00 AM", "10:00 AM", "04:00 PM", "05:00 PM", "07:00 PM"];
-  var SEED_PAST = [
-    { id: "OM-4112", title: "High Intensity HIIT Blast", date: "2026-06-12", time: "06:00 AM", price: 2500, status: "Attended" }
-  ];
 
+  // ---------------------------------------------------------------------
+  // Phase 3: real backend. Auth + bookings now live in MySQL via PHP
+  // endpoints under auth/ and bookings/, called with fetch(). localStorage
+  // is only kept for the "Hello, <name>" greeting so it can paint instantly
+  // before the network call finishes — it is never trusted for security.
+  // ---------------------------------------------------------------------
   var _mem = {};
   var store = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return (k in _mem) ? _mem[k] : null; } },
@@ -34,8 +37,17 @@
   function getUser() { try { return JSON.parse(store.get("omero.user")); } catch (e) { return null; } }
   function setUser(u) { store.set("omero.user", JSON.stringify(u)); }
   function clearUser() { store.del("omero.user"); }
-  function getBookings() { try { return JSON.parse(store.get("omero.bookings")) || []; } catch (e) { return []; } }
-  function setBookings(b) { store.set("omero.bookings", JSON.stringify(b)); }
+
+  function api(path, method, body) {
+    return fetch(path, {
+      method: method || "GET",
+      headers: body ? { "Content-Type": "application/json" } : {},
+      credentials: "same-origin",
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    });
+  }
 
   function LKR(n) { return "LKR " + n.toLocaleString("en-US"); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -69,6 +81,19 @@
     document.body.insertBefore(bg, document.body.firstChild);
   }
 
+  // Shows a small inline error message under a form, creating the element on
+  // first use so no HTML file needs to be touched to support it.
+  function showFormError(form, message) {
+    var box = form.querySelector(".js-form-error");
+    if (!box) {
+      box = document.createElement("p");
+      box.className = "help js-form-error";
+      box.style.color = "#ff5c5c";
+      form.insertBefore(box, form.firstChild);
+    }
+    box.textContent = message;
+  }
+
   function initChrome() {
     var user = getUser();
     var name = (user && user.name) ? user.name : "Dedicated Athlete";
@@ -77,7 +102,33 @@
     var toggle = el("navToggle"), menu = el("mobileMenu");
     if (toggle && menu) toggle.addEventListener("click", function () { menu.classList.toggle("open"); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-action="logout"]'), function (b) {
-      b.addEventListener("click", function () { clearUser(); location.href = "login.html"; });
+      b.addEventListener("click", function () {
+        api("auth/logout.php", "POST", {}).then(function () {
+          clearUser();
+          location.href = "login.html";
+        });
+      });
+    });
+  }
+
+  // Called on every member-only page (classes/book/workouts). Confirms the
+  // PHP session is really logged in before letting the page be used, and
+  // bounces guests back to login.html — mirrors "session must be validated
+  // server-side" from the Phase 3 guideline.
+  function guardPage(onReady) {
+    api("auth/check.php", "GET").then(function (r) {
+      if (r.data && r.data.loggedIn) {
+        setUser({ name: r.data.name, email: r.data.email });
+        initChrome();
+        if (onReady) onReady();
+      } else {
+        clearUser();
+        location.href = "login.html";
+      }
+    }).catch(function () {
+      // Backend unreachable (e.g. MySQL/XAMPP not running) — send to login
+      // rather than showing a broken member page.
+      location.href = "login.html";
     });
   }
 
@@ -86,8 +137,18 @@
     if (!form) return;
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      setUser({ name: "Dedicated Athlete", email: el("li-email").value });
-      location.href = "classes.html";
+      var email = el("li-email").value.trim();
+      var password = el("li-pass").value;
+      api("auth/login.php", "POST", { email: email, password: password }).then(function (r) {
+        if (r.ok && r.data.success) {
+          setUser({ name: r.data.name, email: r.data.email });
+          location.href = "classes.html";
+        } else {
+          showFormError(form, (r.data && r.data.message) || "Login failed. Please try again.");
+        }
+      }).catch(function () {
+        showFormError(form, "Could not reach the server. Check that XAMPP/MySQL is running.");
+      });
     });
   }
 
@@ -97,8 +158,19 @@
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var name = el("rg-name").value.trim() || "Dedicated Athlete";
-      setUser({ name: name, email: el("rg-email").value });
-      location.href = "classes.html";
+      var email = el("rg-email").value.trim();
+      var phone = el("rg-phone") ? el("rg-phone").value.trim() : "";
+      var password = el("rg-pass").value;
+      api("auth/register.php", "POST", { name: name, email: email, phone: phone, password: password }).then(function (r) {
+        if (r.ok && r.data.success) {
+          setUser({ name: r.data.name, email: r.data.email });
+          location.href = "classes.html";
+        } else {
+          showFormError(form, (r.data && r.data.message) || "Registration failed. Please try again.");
+        }
+      }).catch(function () {
+        showFormError(form, "Could not reach the server. Check that XAMPP/MySQL is running.");
+      });
     });
   }
 
@@ -218,12 +290,21 @@
     confirmBtn.addEventListener("click", function () {
       var s = getSession(state.sessionId);
       if (!s || !state.date || !state.time) return;
-      var rec = {
-        id: "OM-" + Math.floor(1000 + Math.random() * 9000), status: "Confirmed",
-        sessionId: s.id, title: s.title, price: s.price, duration: s.duration, date: state.date, time: state.time
-      };
-      setBookings([rec].concat(getBookings()));
-      location.href = "workouts.html";
+      confirmBtn.disabled = true;
+      api("bookings/create.php", "POST", {
+        sessionId: s.id, title: s.title, price: s.price, duration: s.duration,
+        date: state.date, time: state.time
+      }).then(function (r) {
+        if (r.ok && r.data.success) {
+          location.href = "workouts.html";
+        } else {
+          confirmBtn.disabled = false;
+          alert((r.data && r.data.message) || "Could not save the booking.");
+        }
+      }).catch(function () {
+        confirmBtn.disabled = false;
+        alert("Could not reach the server. Check that XAMPP/MySQL is running.");
+      });
     });
 
     renderAll();
@@ -233,13 +314,10 @@
     var upEl = el("upcoming"), pastEl = el("past");
     if (!upEl || !pastEl) return;
 
-    function render() {
+    function render(all) {
       var t = today();
-      var all = getBookings();
       var upcoming = all.filter(function (b) { return b.date >= t; });
-      var past = all.filter(function (b) { return b.date < t; })
-        .map(function (b) { var c = Object.assign({}, b); c.status = "Attended"; return c; })
-        .concat(SEED_PAST);
+      var past = all.filter(function (b) { return b.date < t; });
 
       if (!upcoming.length) {
         upEl.innerHTML = '<div class="empty"><p>No upcoming slots yet.</p>' +
@@ -255,45 +333,53 @@
               '<td class="cell-muted">' + b.date + " · " + b.time + "</td>" +
               '<td class="cell-muted">' + LKR(b.price) + "</td>" +
               '<td><span class="badge confirmed">Confirmed</span></td>' +
-              '<td class="right"><button class="btn btn-ghost btn-sm" data-cancel="' + b.id + '">' + icon("x", 13) + " Cancel</button></td>" +
+              '<td class="right"><button class="btn btn-ghost btn-sm" data-cancel="' + b.dbId + '">' + icon("x", 13) + " Cancel</button></td>" +
               "</tr>";
           }).join("") + "</tbody></table></div>";
       }
 
-      pastEl.innerHTML =
-        '<div class="table-wrap"><table><thead><tr>' +
-        "<th>Reservation ID</th><th>Session</th><th>Date &amp; Time</th><th>Cost</th><th>Status</th><th class=\"right\">Shortcut</th>" +
-        "</tr></thead><tbody>" + past.map(function (b) {
-          return "<tr>" +
-            '<td class="id">' + b.id + "</td>" +
-            '<td class="cell-title">' + esc(b.title) + "</td>" +
-            '<td class="cell-muted">' + b.date + " · " + b.time + "</td>" +
-            '<td class="cell-muted">' + LKR(b.price) + "</td>" +
-            '<td><span class="badge attended">Attended</span></td>' +
-            '<td class="right"><a class="btn btn-ghost btn-sm" href="book.html">' + icon("rotate", 13) + " Book Again</a></td>" +
-            "</tr>";
-        }).join("") + "</tbody></table></div>";
+      pastEl.innerHTML = !past.length
+        ? '<div class="empty"><p>No past sessions yet.</p></div>'
+        : '<div class="table-wrap"><table><thead><tr>' +
+          "<th>Reservation ID</th><th>Session</th><th>Date &amp; Time</th><th>Cost</th><th>Status</th><th class=\"right\">Shortcut</th>" +
+          "</tr></thead><tbody>" + past.map(function (b) {
+            return "<tr>" +
+              '<td class="id">' + b.id + "</td>" +
+              '<td class="cell-title">' + esc(b.title) + "</td>" +
+              '<td class="cell-muted">' + b.date + " · " + b.time + "</td>" +
+              '<td class="cell-muted">' + LKR(b.price) + "</td>" +
+              '<td><span class="badge attended">Attended</span></td>' +
+              '<td class="right"><a class="btn btn-ghost btn-sm" href="book.html">' + icon("rotate", 13) + " Book Again</a></td>" +
+              "</tr>";
+          }).join("") + "</tbody></table></div>";
+    }
+
+    function load() {
+      api("bookings/list.php", "GET").then(function (r) {
+        render((r.ok && r.data.success) ? r.data.bookings : []);
+      }).catch(function () {
+        upEl.innerHTML = '<div class="empty"><p>Could not load your bookings. Check that XAMPP/MySQL is running.</p></div>';
+        pastEl.innerHTML = "";
+      });
     }
 
     upEl.addEventListener("click", function (e) {
       var b = e.target.closest("[data-cancel]");
       if (!b) return;
-      var id = b.getAttribute("data-cancel");
-      setBookings(getBookings().filter(function (x) { return x.id !== id; }));
-      render();
+      api("bookings/cancel.php", "POST", { dbId: b.getAttribute("data-cancel") }).then(function () { load(); });
     });
 
-    render();
+    load();
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     injectBackground();
-    initChrome();
     var page = document.body.getAttribute("data-page");
-    if (page === "login") initLogin();
-    else if (page === "register") initRegister();
-    else if (page === "classes") initClasses();
-    else if (page === "book") initBook();
-    else if (page === "workouts") initWorkouts();
+    var memberPages = { classes: initClasses, book: initBook, workouts: initWorkouts };
+
+    if (page === "login") { initChrome(); initLogin(); }
+    else if (page === "register") { initChrome(); initRegister(); }
+    else if (memberPages[page]) { guardPage(memberPages[page]); }
+    else { initChrome(); }
   });
 })();

@@ -1,48 +1,35 @@
 <?php
-session_start();
-require_once '../includes/db.php';
-$error = '';
+// auth/login.php
+// Called via fetch() from login.html (app.js). Validates credentials and starts the session.
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email']);
-    $password = $_POST['password'];
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
-
-    if ($user && password_verify($password, $user['password'])) {
-        // Regenerate session ID upon successful login as required
-        session_regenerate_id(true);
-        $_SESSION['user_id']  = $user['id'];
-        $_SESSION['username'] = $user['username'];
-
-        header("Location: ../dashboard.php");
-        exit();
-    } else {
-        $error = "Invalid email or password.";
-    }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    json_out(['success' => false, 'message' => 'Invalid request method.'], 405);
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>OMERO GYM - Login</title>
-    <link rel="stylesheet" href="../css/common.css">
-    <link rel="stylesheet" href="../css/login.css">
-</head>
-<body>
-    <div class="auth-card">
-        <h2>OMERO GYM PORTAL</h2>
-        <?php if (isset($_GET['registered'])): ?><p class="success">Registration successful! Please log in.</p><?php endif; ?>
-        <?php if ($error): ?><p class="error"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-        <form action="login.php" method="POST">
-            <input type="email" name="email" placeholder="Email Address" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">SIGN IN</button>
-        </form>
-        <a href="register.php">New to OMERO GYM? Create an Account Here</a>
-    </div>
-</body>
-</html>
+
+$input = read_json_input();
+
+$email    = clean($input['email'] ?? '');
+$password = (string) ($input['password'] ?? '');
+
+if ($email === '' || $password === '') {
+    json_out(['success' => false, 'message' => 'Email and password are required.'], 422);
+}
+
+$stmt = $pdo->prepare('SELECT id, name, email, password FROM users WHERE email = ? LIMIT 1');
+$stmt->execute([$email]);
+$user = $stmt->fetch();
+
+if (!$user || !password_verify($password, $user['password'])) {
+    json_out(['success' => false, 'message' => 'Incorrect email or password.'], 401);
+}
+
+// Start a fresh session id after a successful login.
+session_regenerate_id(true);
+$_SESSION['user_id']    = (int) $user['id'];
+$_SESSION['user_name']  = $user['name'];
+$_SESSION['user_email'] = $user['email'];
+
+json_out(['success' => true, 'name' => $user['name'], 'email' => $user['email']]);

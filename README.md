@@ -17,9 +17,10 @@ and view their bookings on a personal dashboard.
 
 - Responsive multi-page site (works on mobile, tablet and desktop)
 - Class and session catalog with live category filtering
-- Slot booking with a confirmation modal (saved in the browser for now)
+- Slot booking with a confirmation modal, now saved permanently in MySQL
 - Personal dashboard listing booked slots, with cancel
-- Login, registration and contact forms with real-time validation
+- Login, registration and contact forms with real-time (client) + server-side validation
+- Passwords hashed with bcrypt, prepared statements everywhere, PHP sessions for auth
 
 ## Technology Stack
 
@@ -27,49 +28,70 @@ and view their bookings on a personal dashboard.
 |-------|-----------|
 | Structure | HTML5, CSS3, Bootstrap 5 |
 | Styling | Custom CSS on top of Bootstrap (dark theme) |
-| Logic | JavaScript (Vanilla) |
-| Backend | PHP 8 *(added in Phase 3)* |
-| Database | MySQL *(added in Phase 3)* |
+| Logic | JavaScript (Vanilla) + fetch() calls to the backend |
+| Backend | PHP 8 |
+| Database | MySQL (via XAMPP/WAMP) |
 | Version control | Git & GitHub |
 
 ## Pages
 
 | File | Description |
+|------|--------------|
+| `login.html` | Login form (posts to `auth/login.php`) |
+| `register.html` | Account creation form (posts to `auth/register.php`) |
+| `classes.html` | Class catalog with category filter (member-only) |
+| `book.html` | Booking form with confirmation (saves via `bookings/create.php`) |
+| `workouts.html` | Member dashboard — list of bookings (`bookings/list.php`) |
+| `contact.php` | New contact form, saved to the `messages` table |
 
-| `login.html` | Login form |
-| `register.html` | Account creation form |
-| `classes.html` | Class catalog with category filter |
-| `book.html` | Booking form with confirmation modal |
-| `workout dashboard.html` | List of the member's bookings |
+## Backend Structure (Phase 3)
 
+```
+OMERO-GYM/
+├── includes/
+│   ├── db.php            PDO connection to the omero_gym database
+│   └── functions.php     shared helpers (session guard, JSON helpers, sanitising)
+├── auth/
+│   ├── register.php      creates a user, hashes password, starts session
+│   ├── login.php         verifies credentials, starts session
+│   ├── logout.php        destroys the session
+│   └── check.php         used by app.js to confirm a member is logged in
+├── bookings/
+│   ├── create.php        saves a new booking for the logged-in member
+│   ├── list.php          returns the member's bookings
+│   └── cancel.php        deletes a booking (only if it belongs to the member)
+├── contact.php           contact form + handler → messages table
+├── index.php             redirects to classes.html or login.html
+├── dashboard.php         redirects to workouts.html (the member dashboard)
+├── database.sql          creates the database + users/messages/bookings tables
+├── app.js                original frontend logic, now calling the PHP endpoints above
+└── *.html / *.css        original frontend, unchanged
+```
 
-## JavaScript Features
+## Database
 
-1. Dynamic content – filter class cards by category without reloading.
-2. Image slider – Bootstrap carousel on the home page.
-3. Form validation – required fields, email format, matching passwords and live feedback.
-4. Smooth scrolling – navigation links scroll smoothly to page sections.
-5. Custom animation – sections fade in as you scroll.
-6. Event handling – navbar shadow on scroll, booking and cancel actions.
+Three tables, created by `database.sql`:
 
+- **users** — id, name, email, phone, password (hashed), created_at
+- **messages** — id, name, email, message, created_at (from the contact form)
+- **bookings** — id, user_id, session_id, title, price, duration, booking_date, booking_time, status, created_at (the theme-specific table for this fitness/gym project)
 
-## How to Run
+## How to Run (Phase 3 — with backend)
 
-This phase is front-end only, so no server is required.
+1. Install **XAMPP** (or WAMP) and start **Apache** and **MySQL**.
+2. Copy the whole `OMERO-GYM` folder into `htdocs` (XAMPP) or `www` (WAMP).
+3. Open **phpMyAdmin** → **Import** → select `database.sql` → Go.
+   This creates the `omero_gym` database with the `users`, `messages` and `bookings` tables.
+4. Check `includes/db.php` — the default XAMPP/WAMP settings (`root` / no password) are
+   already filled in. Change them there if your MySQL setup is different.
+5. Visit `http://localhost/OMERO-GYM/login.html` in your browser (or `index.php`).
+6. Register a new account, then log in — classes, booking and the workouts dashboard
+   are all backed by MySQL from this point on.
 
-1. Clone the repository:
-   ```
-   https://github.com/itt2024009/omerogym.git
-   ```
-2. Open the folder in your editor.
-3. Open `login.html` in a browser, or use the **Live Server** extension in VS Code
-   (recommended, so booking data is kept between pages).
+## Roadmap (Phase 3 — completed)
 
-Bootstrap 5 and the icons/fonts load from a CDN, so an internet connection is needed
-the first time.
-
-## Roadmap (Phase 3)
-
-- PHP 8 backend with user registration, login and logout
-- MySQL database (`users`, `messages`, `bookings`) via XAMPP
-- Passwords hashed with `password_hash()` and prepared statements for all queries
+- [x] PHP 8 backend with user registration, login and logout
+- [x] MySQL database (`users`, `messages`, `bookings`) via XAMPP
+- [x] Passwords hashed with `password_hash()` and prepared statements for all queries
+- [x] Contact form saving to the `messages` table
+- [x] Session-based route protection for classes / book / workouts

@@ -1,50 +1,50 @@
 <?php
-require_once '../includes/db.php';
-$message = '';
+// auth/register.php
+// Called via fetch() from register.html (app.js). Creates a new member account.
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username']);
-    $email    = trim($_POST['email']);
-    $phone    = trim($_POST['phone']);
-    $password = $_POST['password'];
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
-    if (!empty($username) && !empty($email) && !empty($password)) {
-        // Secure BCRYPT hashing as required
-        $hashed_password = password_hash($password, PASSWORD_BCRYPT);
-
-        $stmt = $pdo->prepare("INSERT INTO users (username, email, phone, password) VALUES (?, ?, ?, ?)");
-        try {
-            $stmt->execute([$username, $email, $phone, $hashed_password]);
-            header("Location: login.php?registered=success");
-            exit();
-        } catch (PDOException $e) {
-            $message = "Registration failed: Email might already exist.";
-        }
-    } else {
-        $message = "Please fill in all required fields.";
-    }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    json_out(['success' => false, 'message' => 'Invalid request method.'], 405);
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>OMERO GYM - Register</title>
-    <link rel="stylesheet" href="../css/common.css">
-    <link rel="stylesheet" href="../css/register.css">
-</head>
-<body>
-    <div class="auth-card">
-        <h2>CREATE ACCOUNT</h2>
-        <?php if ($message): ?><p class="error"><?= htmlspecialchars($message) ?></p><?php endif; ?>
-        <form action="register.php" method="POST">
-            <input type="text" name="username" placeholder="Full Name" required>
-            <input type="email" name="email" placeholder="Email Address" required>
-            <input type="text" name="phone" placeholder="Phone Number">
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">REGISTER NOW</button>
-        </form>
-        <a href="login.php">Already registered? Login Here</a>
-    </div>
-</body>
-</html>
+
+$input = read_json_input();
+
+$name     = clean($input['name'] ?? '');
+$email    = clean($input['email'] ?? '');
+$phone    = clean($input['phone'] ?? '');
+$password = (string) ($input['password'] ?? '');
+
+if ($name === '' || $email === '' || $password === '') {
+    json_out(['success' => false, 'message' => 'Name, email and password are required.'], 422);
+}
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    json_out(['success' => false, 'message' => 'Please enter a valid email address.'], 422);
+}
+if (strlen($password) < 6) {
+    json_out(['success' => false, 'message' => 'Password must be at least 6 characters.'], 422);
+}
+
+// Check for an existing account with the same email (prepared statement).
+$stmt = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+$stmt->execute([$email]);
+if ($stmt->fetch()) {
+    json_out(['success' => false, 'message' => 'An account with that email already exists.'], 409);
+}
+
+$hashed = password_hash($password, PASSWORD_BCRYPT);
+
+$stmt = $pdo->prepare(
+    'INSERT INTO users (name, email, phone, password, created_at) VALUES (?, ?, ?, ?, NOW())'
+);
+$stmt->execute([$name, $email, $phone, $hashed]);
+$userId = (int) $pdo->lastInsertId();
+
+// Log the new member straight in and protect against session fixation.
+session_regenerate_id(true);
+$_SESSION['user_id']    = $userId;
+$_SESSION['user_name']  = $name;
+$_SESSION['user_email'] = $email;
+
+json_out(['success' => true, 'name' => $name, 'email' => $email]);

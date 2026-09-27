@@ -1,7 +1,16 @@
 <?php
-session_start();
-$_SESSION = array();
+// auth/logout.php
+// Called via fetch() when the "Logout" button is pressed. Destroys the session cleanly.
+
+require_once __DIR__ . '/../includes/functions.php';
+
+$_SESSION = [];
+
+if (ini_get('session.use_cookies')) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+}
+
 session_destroy();
-header("Location: login.php");
-exit();
-?>
+
+json_out(['success' => true]);
